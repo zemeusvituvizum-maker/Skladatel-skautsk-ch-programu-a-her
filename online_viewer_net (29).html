@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Skladatel skautských her — demo</title>
+  <link rel="icon" type="image/jpeg" href="SKAUT_znak.jpeg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print {
+      body { background: white !important; color: black !important; }
+      .no-print { display: none !important; }
+      .block-card { page-break-inside: avoid; break-inside: avoid; }
+      textarea {
+        display: block; width: 100% !important; border: none !important;
+        resize: none !important; overflow: visible !important; white-space: pre-wrap !important;
+      }
+    }
+    .scroll-area { max-height: none; overflow: visible; }
+    .block-card { transition: box-shadow .12s ease; }
+    .file-preview img { max-height: 80px; display: block; margin-bottom: 2px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <div class="max-w-6xl mx-auto p-4">
+    <header class="flex items-center gap-4 mb-4">
+      <img src="https://lh3.googleusercontent.com/drive-storage/AJQWtBNFHeHcLt5TgmwjYg35w3uC9vFaZVLcTNS8e69WCFM2itn4ekwW_awmtv5NiWPDCB3d1qq9tgCc9t31q5eFntlvzUkOQNS6hPtMwaVLvhopZ5c=w2940-h1664" alt="Skladatel skautských her" class="h-12">
+      <div class="ml-auto flex gap-2">
+        <button id="btnPrint" class="no-print px-3 py-2 rounded-xl border bg-white">Tisk</button>
+        <button id="btnExportMD" class="no-print px-3 py-2 rounded-xl border bg-white">Export MD</button>
+        <button id="btnExportJSON" class="no-print px-3 py-2 rounded-xl border bg-white">Export JSON</button>
+        <button id="btnImportJSON" class="no-print px-3 py-2 rounded-xl border bg-white">Import JSON</button>
+        <button id="btnImportBlocks" class="no-print px-3 py-2 rounded-xl border bg-white">Import bloků (přidat)</button>
+        <input id="importFile" type="file" accept="application/json" class="hidden" />
+        <button id="btnFullscreen" class="no-print px-3 py-2 rounded-xl border bg-white">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h6M4 4v6M20 4h-6M20 4v6M4 20h6M4 20v-6M20 20h-6M20 20v-6"/>
+  </svg>
+</button>
+      </div>
+    </header>
+
+    <main class="grid md:grid-cols-[320px_1fr] gap-6">
+      <aside class="space-y-4">
+        <section class="p-4 bg-white rounded-2xl border">
+          <h2 class="font-semibold mb-2">Základ hry</h2>
+          <label class="block text-sm mb-2">Název <input id="metaName" class="mt-1 w-full p-2 rounded-lg border"/></label>
+          <label class="block text-sm mb-2">Autor <input id="metaAuthor" class="mt-1 w-full p-2 rounded-lg border"/></label>
+          <label class="block text-sm mb-2">Věk / Počet <input id="metaAge" class="mt-1 w-full p-2 rounded-lg border"/></label>
+        </section>
+
+        <section class="p-4 bg-white rounded-2xl border">
+          <h2 class="font-semibold mb-2">Přidat sekci</h2>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="addSection px-3 py-2 rounded-xl border" data-type="pribeh">Příběh</button>
+            <button class="addSection px-3 py-2 rounded-xl border" data-type="prakticka">Praktická</button>
+            <button class="addSection px-3 py-2 rounded-xl border" data-type="materialy">Materiály</button>
+            <button class="addSection px-3 py-2 rounded-xl border" data-type="bezpecnost">Bezpečnost</button>
+            <button class="addSection px-3 py-2 rounded-xl border" data-type="lokace">Lokace</button>
+            <button class="addSection px-3 py-2 rounded-xl border" data-type="casovani">Časování</button>
+            <button class="addSection px-3 py-2 rounded-xl border" data-type="hodnoceni">Hodnocení</button>
+            <button class="addSection px-3 py-2 rounded-xl border" data-type="pozn">Poznámka</button>
+          </div>
+        </section>
+
+        <section class="p-4 bg-white rounded-2xl border">
+          <h2 class="font-semibold mb-2">Šablony</h2>
+          <div id="templates" class="space-y-2"></div>
+        </section>
+
+        <section class="p-4 bg-white rounded-2xl border">
+          <h2 class="font-semibold mb-2">Mapka / hranice</h2>
+          <div class="text-sm mb-2">Klikni na plátno pro body hranice. Přetáhni pro posun. Export obrázku nebo souřadnic.</div>
+          <input type="file" id="uploadMap" accept="image/*" class="mb-2 block">
+          <canvas id="mapCanvas" width="280" height="200" class="border rounded-md w-full"></canvas>
+          <div class="flex gap-2 mt-2">
+            <button id="btnClearMap" class="px-2 py-1 rounded border">Vymazat</button>
+            <button id="btnExportMapPNG" class="px-2 py-1 rounded border">Export PNG</button>
+            <button id="btnExportMapCoords" class="px-2 py-1 rounded border">Export souřadnic</button>
+          </div>
+        </section>
+      </aside>
+
+      <section>
+        <div class="p-4 bg-white rounded-2xl border mb-4">
+          <div class="flex items-center gap-3">
+            <input id="search" placeholder="Vyhledat..." class="flex-1 p-2 rounded-lg border"/>
+            <button id="btnAddDefault" class="px-3 py-2 rounded-xl border">Přidat výchozí šablonu</button>
+          </div>
+        </div>
+
+        <div id="blocksContainer" class="space-y-3 p-2 bg-white rounded-2xl border scroll-area"></div>
+
+        <div class="p-4 bg-white rounded-2xl border mt-4">
+          <h3 class="font-semibold">Materiály — součet</h3>
+          <div id="materialsSummary" class="mt-2 text-sm"></div>
+          <button id="btnRefreshMaterials" class="mt-2 px-3 py-1 rounded border">Aktualizovat součet</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="mt-6 text-sm text-slate-600"><footer class="mt-6 text-sm text-slate-600 text-center">
+  <p>🎲 Skladatel skautských her — demo projekt</p>
+  <p>Autor: <strong>Tobíáš Pejsar</strong></p>
+  <p>Otevři tento soubor přímo ve svém prohlížeči a začni tvořit vlastní hru!</p>
+</footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script>
+  const uid = ()=> Math.random().toString(36).slice(2,9);
+
+  function saveToLocal(key, data){ localStorage.setItem(key, JSON.stringify(data)); }
+  function loadFromLocal(key, fallback){ try{ const v = JSON.parse(localStorage.getItem(key)||'null'); return v || fallback;}catch{ return fallback; } }
+
+  (function App(){
+    let blocks = loadFromLocal('sg_blocks', []);
+    const meta = loadFromLocal('sg_meta', {name:'Nová hra', author:'', age:'8+'});
+    const blocksContainer = document.getElementById('blocksContainer');
+    const materialsSummary = document.getElementById('materialsSummary');
+
+    // --- Map Canvas ---
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+
+    document.getElementById('uploadMap').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img,0,0);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    document.getElementById('btnClearMap').addEventListener('click', () => {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+    });
+
+    document.getElementById('btnExportMapPNG').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = 'mapa.png';
+      link.click();
+    });
+
+    // --- Meta data ---
+    document.getElementById('metaName').value = meta.name || '';
+    document.getElementById('metaAuthor').value = meta.author || '';
+    document.getElementById('metaAge').value = meta.age || '';
+    ['metaName','metaAuthor','metaAge'].forEach(id=> document.getElementById(id).addEventListener('input', ()=>{
+      meta[id.replace('meta','').toLowerCase()] = document.getElementById(id).value;
+      save();
+    }));
+
+    document.getElementById('btnExportJSON').addEventListener('click', ()=>{
+      let mapImage = null;
+      try { mapImage = canvas.toDataURL('image/png'); } catch{}
+      const payload = { meta, blocks, map: { image: mapImage } };
+      download(`${meta.name||'hra'}.json`, JSON.stringify(payload, null, 2), 'application/json');
+    });
+
+    document.getElementById('btnExportMD').addEventListener('click', ()=>{
+      download(`${meta.name||'hra'}.md`, toMarkdown({meta, blocks}), 'text/markdown');
+    });
+
+    document.getElementById('btnPrint').addEventListener('click', ()=>{ window.print(); });
+
+    const btnFullscreen = document.getElementById('btnFullscreen');
+    btnFullscreen.addEventListener('click', () => {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+    });
+
+    // --- Import JSON ---
+    document.getElementById('btnImportJSON').addEventListener('click', ()=>{ document.getElementById('importFile').click(); });
+    document.getElementById('importFile').addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt)=>{
+        try {
+          const data = JSON.parse(evt.target.result);
+          if(data.meta) Object.assign(meta, data.meta);
+          if(Array.isArray(data.blocks)) blocks = data.blocks;
+          if(data.map && data.map.image){
+            const img = new Image();
+            img.onload = () => {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.clearRect(0,0,canvas.width,canvas.height);
+              ctx.drawImage(img,0,0);
+            };
+            img.src = data.map.image;
+          }
+          save(); renderBlocks();
+          document.getElementById('metaName').value = meta.name;
+          document.getElementById('metaAuthor').value = meta.author;
+          document.getElementById('metaAge').value = meta.age;
+        } catch(err) { alert('Soubor není platný JSON'); }
+      };
+      reader.readAsText(file);
+    });
+
+    // --- Import bloků (přidat) ---
+    document.getElementById('btnImportBlocks').addEventListener('click', ()=>{
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = e=>{
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = evt=>{
+          try{
+            const data = JSON.parse(evt.target.result);
+            if(Array.isArray(data.blocks)){
+              data.blocks.forEach(b=>{ b.id = uid(); blocks.push(b); });
+            }
+            save(); renderBlocks();
+          } catch(err){ alert("Soubor není platný JSON bloků!"); }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    });
+
+    function save(){ saveToLocal('sg_blocks', blocks); saveToLocal('sg_meta', meta); }
+
+    function renderBlocks(){
+      blocksContainer.innerHTML = '';
+      blocks.forEach((b)=>{
+        const blockEl = document.createElement('div');
+        blockEl.className = 'block-card p-3 border rounded mb-2 bg-white';
+
+        blockEl.innerHTML = `
+          <div class="flex justify-between items-center mb-2">
+            <input class="font-semibold text-lg flex-1 p-1 border rounded" value="${b.title}" data-field="title" data-id="${b.id}">
+            <button class="ml-2 text-red-600" data-action="delete" data-id="${b.id}">Smazat</button>
+          </div>
+          <div class="text-sm mb-2">Typ: ${b.type}</div>
+          <label class="block mb-2 text-sm">Délka (min)
+            <input type="number" class="p-1 border rounded w-24" value="${b.duration||0}" data-field="duration" data-id="${b.id}">
+          </label>
+          <label class="block mb-2 text-sm">Obsah
+            <textarea class="w-full p-2 border rounded" rows="3" data-field="content" data-id="${b.id}">${b.content||''}</textarea>
+          </label>
+        `;
+
+        if(b.type==='materialy'){
+          blockEl.innerHTML += `
+            <label class="block mb-2 text-sm">Přiložené soubory
+              <input type="file" multiple data-field="files" data-id="${b.id}" class="block mt-1">
+            </label>
+            <div class="text-sm mt-2 file-preview" id="files-${b.id}">
+              ${(b.files||[]).map(f=>{
+                if(f.url) return `<div class="mb-1"><img src="${f.url}"><span>${f.name}</span></div>`;
+                else return `<div><span>${f.name}</span></div>`;
+              }).join('')}
+            </div>
+          `;
+        }
+
+        blocksContainer.appendChild(blockEl);
+      });
+
+      blocksContainer.querySelectorAll('[data-field]').forEach(el=>{
+        el.addEventListener('input', e=>{
+          const id = e.target.dataset.id;
+          const field = e.target.dataset.field;
+          const block = blocks.find(b=>b.id===id);
+          if(block && field!=='files'){
+            block[field] = e.target.type==='number' ? Number(e.target.value) : e.target.value;
+            save();
+            if(field==='content') autoResizeTextarea(e.target);
+          }
+        });
+      });
+
+      blocksContainer.querySelectorAll('input[data-field="files"]').forEach(input=>{
+        input.addEventListener('change', e=>{
+          const id = e.target.dataset.id;
+          const block = blocks.find(b=>b.id===id);
+          if(block){
+            block.files = Array.from(e.target.files).map(f=>{
+              const fileData = { name: f.name };
+              if(f.type.startsWith('image/')){
+                fileData.url = URL.createObjectURL(f);
+                fileData.type = f.type;
+              }
+              return fileData;
+            });
+            save(); renderBlocks();
+          }
+        });
+      });
+
+      blocksContainer.querySelectorAll('[data-action="delete"]').forEach(btn=>{
+        btn.addEventListener('click', e=>{
+          const id = e.target.dataset.id;
+          blocks = blocks.filter(b=>b.id!==id);
+          save(); renderBlocks();
+        });
+      });
+
+      updateMaterialsSummary();
+      initTextareaAutosize();
+    }
+
+    function toMarkdown({meta, blocks}){
+      const lines = [ `# ${meta.name || 'Nová hra'}`, `Autor: ${meta.author || '?'}`, `Věk / Počet: ${meta.age || '?'}\n`, '---' ];
+      blocks.forEach((b,i)=>{
+        lines.push(`\n## ${i+1}. ${b.title}\nTyp: ${b.type}\nDélka: ${b.duration||0} min\n\n${b.content}`);
+        if(b.files && b.files.length){
+          lines.push(`\nSoubory: ${b.files.map(f=>f.name).join(', ')}`);
+        }
+      });
+      return lines.join('\n');
+    }
+
+    function updateMaterialsSummary(){
+      const counts = {};
+      blocks.forEach(b=>{
+        if(b.type==='materialy'){
+          (b.content||'').split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
+            const m = line.match(/^(.+?)[:\-–]?\s*([0-9]+)/);
+            if(m){ counts[m[1].trim()] = (counts[m[1].trim()]||0) + Number(m[2]); }
+          });
+        }
+      });
+      const keys = Object.keys(counts);
+      materialsSummary.innerHTML = keys.length? '<ul>'+keys.map(k=>`<li>${k}: ${counts[k]}</li>`).join('')+'</ul>' : '<em>Žádné materiály</em>';
+    }
+
+    document.getElementById('btnRefreshMaterials').addEventListener('click', updateMaterialsSummary);
+
+    function download(name, content, mime){
+      const blob = new Blob([content], {type: mime});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
+    }
+
+    document.querySelectorAll('.addSection').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+        const newBlock = { id: uid(), title: `Nová sekce (${type})`, type: type, duration:0, content:'', files:[] };
+        blocks.push(newBlock); save(); renderBlocks();
+      });
+    });
+
+    function autoResizeTextarea(textarea){
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
+    function initTextareaAutosize(){
+      document.querySelectorAll('textarea[data-field="content"]').forEach(t=>{
+        autoResizeTextarea(t);
+        t.addEventListener('input', ()=> autoResizeTextarea(t));
+      });
+    }
+
+    renderBlocks();
+
+    // --- Vyhledávání ---
+    const searchInput = document.getElementById('search');
+    searchInput.addEventListener('input', () => {
+      const term = searchInput.value.toLowerCase();
+      document.querySelectorAll('#blocksContainer .block-card').forEach(card => {
+        const title = card.querySelector('[data-field="title"]')?.value || '';
+        const type = card.querySelector('.text-sm')?.innerText || '';
+        const duration = card.querySelector('input[data-field="duration"]')?.value || '';
+        const content = card.querySelector('textarea[data-field="content"]')?.value || '';
+        const combined = `${title} ${type} ${duration} ${content}`.toLowerCase();
+        card.style.display = combined.includes(term) ? '' : 'none';
+      });
+    });
+  })();
+  </script>
+</body>
+</html>
